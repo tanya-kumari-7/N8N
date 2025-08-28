@@ -1,0 +1,158 @@
+{
+  "name": "WORKFLOW_1: GET DATA FROM BQ => SEPERATE THE DATA BY STATE => GET CSV FOR EACH STATE =>SEND EMAIL STATE WISE",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        -240
+      ],
+      "id": "f03c77c1-afb3-40ef-9430-a2aabadf830c",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "projectId": {
+          "__rl": true,
+          "value": "mydb-470314",
+          "mode": "list",
+          "cachedResultName": "MYDB",
+          "cachedResultUrl": "https://console.cloud.google.com/bigquery?project=mydb-470314"
+        },
+        "sqlQuery": "SELECT * FROM `z_tanya.vle_master`",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleBigQuery",
+      "typeVersion": 2.1,
+      "position": [
+        -288,
+        -256
+      ],
+      "id": "175c1533-0ce9-4053-a9db-9d13ce586a46",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "googleBigQueryOAuth2Api": {
+          "id": "rMHIwiyhkWgxR25Q",
+          "name": "Google BigQuery account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "pythonCode": "# Loop over input items and add a new field called 'myNewField' to the JSON of each one\n# for item in _input.all():\n#   item.json.myNewField = 1\n# return _input.all()\n\nimport csv\nfrom collections import defaultdict\nimport os\nimport tempfile\n\n# Get all input items from BigQuery\nrows = [item.json for item in _input.all()]\n\n# Group by state\ngrouped = defaultdict(list)\nfor row in rows:\n    state = row.get(\"state\", \"Unknown\")\n    grouped[state].append(row)\n\noutput_files = []\n\n# Create one CSV per state\nfor state, records in grouped.items():\n    # Create temporary file for each state\n    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f\"_{state}.csv\")\n    with open(tmp_file.name, mode=\"w\", newline=\"\") as f:\n        writer = csv.DictWriter(f, fieldnames=records[0].keys())\n        writer.writeheader()\n        writer.writerows(records)\n\n    # Push file path into n8n\n    output_files.append({\n        \"json\": {\"state\": state},\n        \"binary\": {\n            \"data\": {\n                \"data\": open(tmp_file.name, \"rb\").read(),\n                \"fileName\": f\"report_state_{state}.csv\",\n                \"mimeType\": \"text/csv\"\n            }\n        }\n    })\n\n# Return one binary per file so Email node can attach them\nreturn output_files\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        32,
+        -256
+      ],
+      "id": "956d5f41-bdd2-4fb1-a6f3-97f1a806f060",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "pythonCode": "# Mapping of state to email\nmapping = {\n    \"Maharashtra\": \"sonamtanya1996@gmail.com\",\n    \"Karnataka\": \"sonamtanya1996@gmail.com\",\n    \"Delhi\": \"sonamtanya1996@gmail.com\",\n    \"Unknown\": \"sonamtanya1996@gmail.com\"\n}\n\noutput = []\n\nfor item in _input.all():\n    state = item.json.get(\"state\", \"Unknown\")\n    to_email = mapping.get(state, mapping[\"Unknown\"])\n\n    # Add the email field\n    item.json[\"toEmail\"] = to_email\n\n    output.append(item)\n\n# Return updated items\nreturn output\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        -256
+      ],
+      "id": "34817c59-be97-4ed5-8b51-f7361fb684bf",
+      "name": "code2"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.toEmail }}",
+        "subject": "=Daily Report - {{ $json.state }}",
+        "message": "=Hello Team,  Please find attached the weekly report for {{ $json.state }}.  Regards,   Analytics Bot",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        448,
+        -256
+      ],
+      "id": "abbcc2f7-f1e7-4448-842e-43458051034b",
+      "name": "Send a message",
+      "webhookId": "6c4a3320-eaa1-4e04-a44d-dfea53523135",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YxhGfgafDjjZSbCL",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code2": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ea06ffbd-0cef-4d9a-ac1e-b5421d718bd3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f55f8c3e88f71e84ed79be89f84555c25b4f81943afa05543fa0348c470cb26c"
+  },
+  "id": "7adcVMRKTwzQO7Qn",
+  "tags": []
+}
