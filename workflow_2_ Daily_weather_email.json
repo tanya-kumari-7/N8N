@@ -1,0 +1,115 @@
+{
+  "name": "workflow_2: Daily_weather_email",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -784,
+        -112
+      ],
+      "id": "63c88f02-491e-4485-95b7-f1065079b26a",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "https://api.openweathermap.org/data/2.5/weather?q=Mumbai&appid=b73f0b5cfcbcb14d25103a65a3b07359&units=metric",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -528,
+        -320
+      ],
+      "id": "ddea6738-4a4a-4b1d-bedb-4076f5eed393",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "pythonCode": "data = items[0][\"json\"]\n\ncity = data[\"name\"]\ntemp = data[\"main\"][\"temp\"]\nfeels_like = data[\"main\"][\"feels_like\"]\nhumidity = data[\"main\"][\"humidity\"]\nweather = data[\"weather\"][0][\"description\"]\nwind = data[\"wind\"][\"speed\"]\n\nreport = f\"\"\"\n<h2> Daily Weather Report for {city}</h2>\n<p><b>Temperature:</b> {temp}°C (Feels like {feels_like}°C)</p>\n<p><b>Condition:</b> {weather}</p>\n<p><b>Humidity:</b> {humidity}%</p>\n<p><b>Wind Speed:</b> {wind} m/s</p>\n\"\"\"\n\nreturn [\n    {\n        \"json\": {\n            \"subject\": f\"Daily Weather Report - {city}\",\n            \"body\": report\n        }\n    }\n]\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -336,
+        -112
+      ],
+      "id": "1bd91fda-d6ab-4422-85c9-d125bc268fc9",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "sendTo": "=sonamtanya1996@gmail.com",
+        "subject": "={{$json[\"subject\"]}}",
+        "message": "={{$json[\"body\"]}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        128,
+        -256
+      ],
+      "id": "c044bd78-0eff-4bfa-bbc2-c2e4ced14755",
+      "name": "Send a message",
+      "webhookId": "6c4a3320-eaa1-4e04-a44d-dfea53523135",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YxhGfgafDjjZSbCL",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7fa91337-850f-453c-b3c6-401f0ad70f19",
+  "meta": {
+    "instanceId": "f55f8c3e88f71e84ed79be89f84555c25b4f81943afa05543fa0348c470cb26c"
+  },
+  "id": "DySDPhhzHVAixYyR",
+  "tags": []
+}
